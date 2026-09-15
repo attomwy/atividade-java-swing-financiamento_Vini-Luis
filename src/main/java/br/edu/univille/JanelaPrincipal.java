@@ -70,18 +70,20 @@ public class JanelaPrincipal extends JFrame {
 
         JScrollPane scroll = new JScrollPane(topo);
         scroll.setBorder(null);
+        scroll.getVerticalScrollBar().setUnitIncrement(12);
         add(scroll, BorderLayout.CENTER);
     }
 
     private JPanel criarPainelVeiculo() {
         JPanel painel = new JPanel(new GridLayout(0, 2, 10, 10));
         painel.setBorder(BorderFactory.createTitledBorder("Dados do veículo"));
+        painel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 230));
 
-        cbMarca = new JComboBox<>(new String[]{
+        String[] marcas = {
                 "Chevrolet", "Fiat", "Ford", "Honda", "Hyundai",
                 "Jeep", "Nissan", "Renault", "Toyota", "Volkswagen", "Outra"
-        });
-
+        };
+        cbMarca = new JComboBox<>(marcas);
         txtModelo = new JTextField();
 
         Integer[] anos = new Integer[27];
@@ -94,12 +96,11 @@ public class JanelaPrincipal extends JFrame {
 
         rbNovo = new JRadioButton("Novo", true);
         rbUsado = new JRadioButton("Usado");
-
         ButtonGroup grupoTipo = new ButtonGroup();
         grupoTipo.add(rbNovo);
         grupoTipo.add(rbUsado);
 
-        JPanel painelTipo = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel painelTipo = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         painelTipo.add(rbNovo);
         painelTipo.add(rbUsado);
 
@@ -123,6 +124,7 @@ public class JanelaPrincipal extends JFrame {
     private JPanel criarPainelUsado() {
         painelUsado = new JPanel(new GridLayout(0, 2, 10, 10));
         painelUsado.setBorder(BorderFactory.createTitledBorder("Dados do veículo usado"));
+        painelUsado.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
 
         txtQuilometragem = new JTextField();
         txtProprietarios = new JTextField();
@@ -139,21 +141,25 @@ public class JanelaPrincipal extends JFrame {
         JPanel painel = new JPanel();
         painel.setLayout(new BoxLayout(painel, BoxLayout.Y_AXIS));
         painel.setBorder(BorderFactory.createTitledBorder("Financiamento"));
+        painel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 170));
 
+        JPanel linhaEntradaCheck = new JPanel(new FlowLayout(FlowLayout.LEFT));
         chkEntrada = new JCheckBox("Possui entrada");
         chkEntrada.addActionListener(e -> atualizarTela());
+        linhaEntradaCheck.add(chkEntrada);
 
         painelEntrada = new JPanel(new GridLayout(1, 2, 10, 10));
-        txtEntrada = new JTextField();
         painelEntrada.add(new JLabel("Valor da entrada:"));
+        txtEntrada = new JTextField();
         painelEntrada.add(txtEntrada);
 
         JPanel linhaParcelas = new JPanel(new GridLayout(1, 2, 10, 10));
-        cbParcelas = new JComboBox<>(new Integer[]{12, 24, 36, 48, 60});
+        linhaParcelas.setBorder(new EmptyBorder(8, 0, 0, 0));
         linhaParcelas.add(new JLabel("Quantidade de parcelas:"));
+        cbParcelas = new JComboBox<>(new Integer[]{12, 24, 36, 48, 60});
         linhaParcelas.add(cbParcelas);
 
-        painel.add(chkEntrada);
+        painel.add(linhaEntradaCheck);
         painel.add(painelEntrada);
         painel.add(linhaParcelas);
 
@@ -169,8 +175,8 @@ public class JanelaPrincipal extends JFrame {
         btnLimpar.addActionListener(e -> limpar());
         btnCalcular.addActionListener(e -> calcular());
 
-        painel.add(btnLimpar);
         painel.add(btnCalcular);
+        painel.add(btnLimpar);
 
         return painel;
     }
@@ -178,6 +184,7 @@ public class JanelaPrincipal extends JFrame {
     private JPanel criarPainelResultado() {
         painelResultado = new JPanel(new GridLayout(0, 2, 10, 10));
         painelResultado.setBorder(BorderFactory.createTitledBorder("Resultado"));
+        painelResultado.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140));
 
         lblValorFinanciado = new JLabel();
         lblValorParcela = new JLabel();
@@ -222,10 +229,14 @@ public class JanelaPrincipal extends JFrame {
 
             if (rbUsado.isSelected()) {
                 double km = lerNumero(txtQuilometragem.getText());
-                int proprietarios = Integer.parseInt(txtProprietarios.getText().trim());
+                if (km < 0) {
+                    mostrarErro("A quilometragem não pode ser negativa.");
+                    return;
+                }
 
-                if (km < 0 || proprietarios <= 0) {
-                    mostrarErro("Preencha os dados do veículo usado corretamente.");
+                int proprietarios = Integer.parseInt(txtProprietarios.getText().trim());
+                if (proprietarios <= 0) {
+                    mostrarErro("Informe uma quantidade válida de proprietários.");
                     return;
                 }
             }
@@ -233,24 +244,23 @@ public class JanelaPrincipal extends JFrame {
             double entrada = 0;
             if (chkEntrada.isSelected()) {
                 entrada = lerNumero(txtEntrada.getText());
-
-                if (entrada < 0 || entrada >= valorVeiculo) {
+                if (entrada < 0) {
+                    mostrarErro("A entrada não pode ser negativa.");
+                    return;
+                }
+                if (entrada >= valorVeiculo) {
                     mostrarErro("A entrada deve ser menor que o valor do veículo.");
                     return;
                 }
             }
 
             int parcelas = (Integer) cbParcelas.getSelectedItem();
-
-            double valorFinanciado = valorVeiculo - entrada;
-            double valorTotal = valorFinanciado * (1 + TAXA);
-            double valorParcela = valorTotal / parcelas;
+            double[] resultado = calcularFinanciamento(valorVeiculo, entrada, parcelas);
 
             NumberFormat moeda = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("pt-BR"));
-
-            lblValorFinanciado.setText(moeda.format(valorFinanciado));
-            lblValorParcela.setText(moeda.format(valorParcela));
-            lblTotalPagar.setText(moeda.format(valorTotal));
+            lblValorFinanciado.setText(moeda.format(resultado[0]));
+            lblTotalPagar.setText(moeda.format(resultado[1]));
+            lblValorParcela.setText(moeda.format(resultado[2]));
 
             painelResultado.setVisible(true);
             revalidate();
@@ -295,5 +305,13 @@ public class JanelaPrincipal extends JFrame {
 
         painelResultado.setVisible(false);
         atualizarTela();
+    }
+
+    public static double[] calcularFinanciamento(double valorVeiculo, double entrada, int parcelas) {
+        double valorFinanciado = valorVeiculo - entrada;
+        double valorTotal = valorFinanciado * (1 + TAXA);
+        double valorParcela = valorTotal / parcelas;
+
+        return new double[]{valorFinanciado, valorTotal, valorParcela};
     }
 }
